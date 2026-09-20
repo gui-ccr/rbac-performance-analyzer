@@ -68,7 +68,7 @@ rbac-performance-analyzer/
 └── package.json
 ```
 
-> Estrutura ainda não escaffoldada — este README documenta o plano. Ver checklist acima.
+> Pastas já criadas (com `.gitkeep`, sem código ainda) — ver checklist acima. `apps/*/.env` são locais, preencha a partir de `.env.example`.
 
 ## Como rodar (previsto)
 
