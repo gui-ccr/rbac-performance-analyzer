@@ -12,7 +12,8 @@ Projeto experimental desenvolvido para a disciplina de Metodologia Científica. 
 
 - [x] Definição do escopo e da metodologia
 - [x] Decisões de arquitetura e stack
-- [ ] Modelagem do schema e dados de seed
+- [x] Modelagem do schema e dados de seed
+- [x] Migrations SQL do cenário RLS (schema + políticas + role dedicado)
 - [ ] Implementação da API `api-rls`
 - [ ] Implementação da API `api-middleware`
 - [ ] Scripts de seed (10k / 50k / 100k registros)
@@ -29,6 +30,8 @@ Leia nesta ordem:
 2. [`docs/ARQUITETURA.md`](docs/ARQUITETURA.md) — modelo de dados, políticas de RLS, design do middleware, endpoints.
 3. [`docs/TESTES_DE_CARGA.md`](docs/TESTES_DE_CARGA.md) — cenários de carga, ferramentas (k6), coleta e conversão dos relatórios.
 4. [`docs/DECISOES_DE_PROJETO.md`](docs/DECISOES_DE_PROJETO.md) — registro das decisões técnicas e o porquê de cada uma (ADR-style).
+5. [`docs/POLITICAS_RLS.md`](docs/POLITICAS_RLS.md) — detalhamento das políticas de RLS e matriz de teste manual.
+6. [`supabase/README.md`](supabase/README.md) — como rodar as migrations no Supabase.
 
 ## Stack técnica
 
@@ -57,6 +60,9 @@ rbac-performance-analyzer/
 ├── reports/
 │   ├── json/                 # Saída bruta dos testes de carga
 │   └── csv/                   # CSV consolidado para análise
+├── supabase/
+│   ├── migrations/            # Schema + políticas de RLS do cenário api-rls
+│   └── seed.sql                # Dados mínimos para testar as políticas manualmente
 ├── docs/
 ├── .env.example
 └── package.json

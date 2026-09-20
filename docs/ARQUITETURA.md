@@ -66,36 +66,43 @@ Essa regra é o "contrato" que as duas implementações precisam cumprir de form
 
 ## Abordagem 1 — `api-rls`
 
-- RLS **habilitado** na tabela `records`.
-- A API autentica o usuário (via JWT do Supabase Auth ou um JWT próprio) e abre a conexão/sessão com o Postgres propagando a identidade do usuário (`set_config('app.current_user_id', ...)` ou claims do JWT lidos via `auth.jwt()` no Supabase).
-- A query executada pela API é sempre `select * from records` (sem `WHERE` de autorização) — quem filtra é o banco.
+`api-rls` conecta direto no Postgres via `pg` (não via PostgREST/Supabase client SDK), então **não** usamos `auth.uid()` do Supabase Auth — esse mecanismo só é populado quando a requisição passa pelo PostgREST. Em vez disso:
+
+- A API valida o JWT do usuário e extrai o `user_id` (identidade **verificada** criptograficamente).
+- Para cada requisição, abre uma transação e propaga essa identidade para o Postgres via uma variável de sessão local à transação: `select set_config('app.current_user_id', $1, true)`.
+- A query executada pela API é sempre `select * from records` (sem `WHERE` de autorização) — é o banco que filtra, consultando `app_users` para descobrir o papel/tenant/departamento de quem está logado.
+- **A aplicação nunca informa o papel do usuário ao banco** — só a identidade verificada. O papel é sempre resolvido pela policy a partir de `app_users`, para que a decisão de autorização continue vivendo inteiramente na camada de dados.
+
+RLS habilitado e políticas (ver migrations em [`../supabase/migrations`](../supabase/migrations) e detalhes de teste em [`POLITICAS_RLS.md`](POLITICAS_RLS.md)):
 
 ```sql
 alter table records enable row level security;
 
-create policy admin_full_access on records
+create policy records_select_admin on records
   for select
   using (
-    tenant_id = (select tenant_id from app_users where id = auth.uid())
-    and (select role from app_users where id = auth.uid()) = 'admin'
+    tenant_id = (select tenant_id from app_users where id = app_current_user_id())
+    and (select role from app_users where id = app_current_user_id()) = 'admin'
   );
 
-create policy manager_department_access on records
+create policy records_select_manager on records
   for select
   using (
-    department_id = (select department_id from app_users where id = auth.uid())
-    and (select role from app_users where id = auth.uid()) = 'manager'
+    department_id = (select department_id from app_users where id = app_current_user_id())
+    and (select role from app_users where id = app_current_user_id()) = 'manager'
   );
 
-create policy viewer_own_access on records
+create policy records_select_viewer on records
   for select
   using (
-    owner_id = auth.uid()
-    and (select role from app_users where id = auth.uid()) = 'viewer'
+    owner_id = app_current_user_id()
+    and (select role from app_users where id = app_current_user_id()) = 'viewer'
   );
 ```
 
-> Nota metodológica: subqueries em cada policy (`select role from app_users where id = auth.uid()`) são exatamente o tipo de custo que a tese espera medir — é aqui que o gargalo de RLS tende a aparecer conforme a tabela cresce, especialmente sem os índices corretos.
+`app_current_user_id()` é uma função `STABLE` que só faz `current_setting('app.current_user_id', true)::uuid` — existe para não espalhar a leitura da GUC por todas as policies. Detalhes completos, matriz de testes e as duas armadilhas mais importantes de RLS (role de conexão com `BYPASSRLS`/superuser ignora as políticas silenciosamente; `set_config(..., true)` exige que o `set` e a query aconteçam **na mesma transação/conexão**) estão em [`POLITICAS_RLS.md`](POLITICAS_RLS.md).
+
+> Nota metodológica: as subqueries em cada policy (`select role from app_users where id = ...`) são exatamente o tipo de custo que a tese espera medir — é aqui que o gargalo de RLS tende a aparecer conforme a tabela cresce, especialmente sem os índices corretos.
 
 ## Abordagem 2 — `api-middleware`
 
