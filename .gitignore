@@ -1,0 +1,12 @@
+node_modules/
+dist/
+build/
+.env
+.env.*
+!.env.example
+reports/json/*
+!reports/json/.gitkeep
+reports/csv/*
+!reports/csv/.gitkeep
+*.log
+.DS_Store
