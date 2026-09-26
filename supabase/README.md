@@ -60,5 +60,5 @@ Troque o `current_user_id` pelo id do admin/manager do `seed.sql` e confirme que
 
 ## Próximos passos
 
-- `scripts/seed/` (a implementar): gerador dos volumes reais do experimento (10k/50k/100k registros), reaproveitando o mesmo schema.
+- `scripts/seed/`: gerador dos volumes reais do experimento (10k/50k/100k registros), reaproveitando o mesmo schema. Ver decisão 8 em [`../docs/DECISOES_DE_PROJETO.md`](../docs/DECISOES_DE_PROJETO.md).
 - Repetir este mesmo schema (sem as migrations de RLS) para o cenário `api-middleware`, em um projeto/schema Supabase separado — ver pendência em [`../docs/DECISOES_DE_PROJETO.md`](../docs/DECISOES_DE_PROJETO.md).

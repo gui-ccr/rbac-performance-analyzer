@@ -16,6 +16,7 @@
     "typecheck": "npm run typecheck --workspaces --if-present && tsc -p scripts/tsconfig.json",
     "dev:rls": "npm run dev --workspace=apps/api-rls",
     "dev:middleware": "npm run dev --workspace=apps/api-middleware",
+    "seed": "tsx scripts/seed/index.ts",
     "token": "tsx scripts/dev/generate-token.ts",
     "check:equivalence": "tsx scripts/check/equivalence.ts"
   },

@@ -10,3 +10,5 @@ reports/csv/*
 !reports/csv/.gitkeep
 *.log
 .DS_Store
+# JWTs de teste gerados pelo seed (assinados com JWT_SECRET)
+scripts/seed/output/

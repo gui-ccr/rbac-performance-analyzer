@@ -16,7 +16,7 @@ Projeto experimental desenvolvido para a disciplina de Metodologia Científica. 
 - [x] Migrations SQL do cenário RLS (schema + políticas + role dedicado)
 - [x] Implementação da API `api-rls`
 - [x] Implementação da API `api-middleware`
-- [ ] Scripts de seed (10k / 50k / 100k registros)
+- [x] Scripts de seed (10k / 50k / 100k registros)
 - [ ] Scripts de teste de carga (k6)
 - [ ] Pipeline de relatório (JSON → CSV)
 - [ ] Coleta de dados e análise estatística
@@ -81,7 +81,7 @@ cp .env.example apps/api-rls/.env
 cp .env.example apps/api-middleware/.env
 
 # 3. Popular o banco com um volume de dados
-npm run seed -- --volume=10000        # (a implementar) por ora: supabase/seed.sql
+npm run seed -- --volume=10000        # substitui os dados do banco; --dry-run testa sem gravar
 
 # 4. Subir as duas APIs (3001 = api-rls, 3002 = api-middleware)
 npm run dev:rls

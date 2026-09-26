@@ -63,6 +63,24 @@ Vale para as policies de RLS (`supabase/migrations/20260926120000_rls_policies_t
 
 **Regra de processo:** a regra de RBAC não muda depois que a coleta de dados começa. Qualquer ajuste posterior invalida as execuções já feitas.
 
+## 8. Estrutura do dataset: só `records` varia entre volumes
+
+**Decisão (2026-09-26):** o gerador (`npm run seed -- --volume=N`, código em `scripts/seed/`) mantém tudo constante entre 10k/50k/100k, exceto o número de linhas em `records`:
+
+| Parâmetro | Valor | Observação |
+|---|---|---|
+| Tenants | 10 | `records` distribuídos por igual (round-robin) |
+| Departamentos | 5 | pool **global**, reaproveitado por todos os tenants (é o que exercita a regra tenant + departamento) |
+| Usuários por tenant | 2 admin, 10 manager (2 por departamento), 50 viewer | 620 usuários no total, em qualquer volume |
+| Owner de cada record | sorteado uniformemente entre os usuários do tenant | `department_id` do record = o do owner (igual ao `POST /records`) |
+| Semente | `--seed=42` (PRNG mulberry32) | mesma semente => mesmos dados nos dois cenários |
+
+**Motivo:** o volume precisa ser a única variável independente. Com estrutura fixa, o que cresce entre cenários é a densidade da tabela (10k => 100k linhas, 10x mais linhas por tenant, por departamento e por owner). Os ids de usuário são os mesmos em todos os volumes e o dataset menor é prefixo do maior, então os tokens de teste servem em qualquer cenário.
+
+**Tamanho do resultado por papel** (varia com o volume, e é parte do que se mede): admin vê 10% da tabela (1.000 => 10.000 linhas); manager ~1% a 3% (95-315 => 962-3.185); viewer 7-26 => 129-202. Como o viewer sorteia o departamento, o tamanho por departamento não é uniforme.
+
+**Cuidados no script:** tudo numa transação (com `--dry-run` que faz rollback); verifica contagens totais e a visibilidade esperada por papel antes do commit; roda `ANALYZE` depois, para o planner decidir com estatísticas atuais; substitui os dados existentes (inclui o `supabase/seed.sql`).
+
 ---
 
 ## Pendências (a decidir antes da implementação)
