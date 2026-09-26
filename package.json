@@ -1,0 +1,30 @@
+{
+  "name": "rbac-performance-analyzer",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Comparação de performance entre RLS (PostgreSQL) e Middleware para RBAC multi-tenant.",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "engines": {
+    "node": ">=20.12"
+  },
+  "scripts": {
+    "postinstall": "npm run build --workspace=packages/shared",
+    "build": "npm run build --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present && tsc -p scripts/tsconfig.json",
+    "dev:rls": "npm run dev --workspace=apps/api-rls",
+    "dev:middleware": "npm run dev --workspace=apps/api-middleware",
+    "token": "tsx scripts/dev/generate-token.ts",
+    "check:equivalence": "tsx scripts/check/equivalence.ts"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.6",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/node": "^24.19.0",
+    "@types/pg": "^8.23.1",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2"
+  }
+}
