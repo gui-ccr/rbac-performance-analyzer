@@ -45,6 +45,24 @@ Registro das decisões técnicas tomadas e o porquê — útil tanto para manter
 
 **Motivo:** o JSON preserva a granularidade total da execução (útil para reprocessar métricas depois, sem precisar rodar o teste de novo); o CSV é o formato mais direto para importar em Excel/Python/R na hora de gerar os gráficos e estatísticas da tese.
 
+## 7. Regra de RBAC idêntica nas duas abordagens, fixada antes da coleta
+
+**Decisão (2026-09-26):** toda leitura em `records` exige `tenant_id` = tenant do usuário, somado à restrição do papel:
+
+| Papel | Regra |
+|---|---|
+| `admin` | tenant |
+| `manager` | tenant **e** departamento |
+| `viewer` | tenant **e** owner |
+
+Vale para as policies de RLS (`supabase/migrations/20260926120000_rls_policies_tenant_scope.sql`) e para o filtro do middleware (`authorizeRecordsAccess`).
+
+**Motivo:** a versão original das policies do manager (só `department_id`) e do viewer (só `owner_id`) divergia do middleware. Uma diferença de latência medida assim misturaria o efeito da estratégia (RLS vs middleware) com o de a regra de um lado ser mais simples que a do outro. Além disso, uma policy sem o `tenant_id` vazaria registros entre tenants que reaproveitem um `department_id` (demonstrado com um 2º tenant numa transação descartada), e o experimento estaria medindo o custo de uma regra que não serviria em produção.
+
+**Como é garantido:** `npm run check:equivalence` compara, para um usuário de cada papel em cada tenant, os ids devolvidos pelas duas APIs (mesmos registros, mesma ordem). Deve passar antes de cada coleta, em cada volume de dados.
+
+**Regra de processo:** a regra de RBAC não muda depois que a coleta de dados começa. Qualquer ajuste posterior invalida as execuções já feitas.
+
 ---
 
 ## Pendências (a decidir antes da implementação)

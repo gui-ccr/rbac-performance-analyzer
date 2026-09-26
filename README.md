@@ -14,8 +14,8 @@ Projeto experimental desenvolvido para a disciplina de Metodologia Científica. 
 - [x] Decisões de arquitetura e stack
 - [x] Modelagem do schema e dados de seed
 - [x] Migrations SQL do cenário RLS (schema + políticas + role dedicado)
-- [ ] Implementação da API `api-rls`
-- [ ] Implementação da API `api-middleware`
+- [x] Implementação da API `api-rls`
+- [x] Implementação da API `api-middleware`
 - [ ] Scripts de seed (10k / 50k / 100k registros)
 - [ ] Scripts de teste de carga (k6)
 - [ ] Pipeline de relatório (JSON → CSV)
@@ -68,7 +68,7 @@ rbac-performance-analyzer/
 └── package.json
 ```
 
-> Pastas já criadas (com `.gitkeep`, sem código ainda) — ver checklist acima. `apps/*/.env` são locais, preencha a partir de `.env.example`.
+> `apps/api-rls`, `apps/api-middleware` e `packages/shared` já têm código; as demais pastas ainda têm só `.gitkeep` — ver checklist acima. `apps/*/.env` são locais, preencha a partir de `.env.example` (o `JWT_SECRET` deve ser **o mesmo** nas duas APIs).
 
 ## Como rodar (previsto)
 
@@ -81,11 +81,15 @@ cp .env.example apps/api-rls/.env
 cp .env.example apps/api-middleware/.env
 
 # 3. Popular o banco com um volume de dados
-npm run seed -- --volume=10000
+npm run seed -- --volume=10000        # (a implementar) por ora: supabase/seed.sql
 
-# 4. Subir as duas APIs
-npm run dev --workspace=apps/api-rls
-npm run dev --workspace=apps/api-middleware
+# 4. Subir as duas APIs (3001 = api-rls, 3002 = api-middleware)
+npm run dev:rls
+npm run dev:middleware
+
+# 4b. Chamar manualmente (token de teste para um usuário de app_users)
+TOKEN=$(npm run -s token -- 44444444-4444-4444-4444-444444444444)   # viewer do seed.sql
+curl -H "Authorization: Bearer $TOKEN" "localhost:3001/records?page=1&pageSize=20"
 
 # 5. Rodar os testes de carga
 k6 run load-tests/k6/scenario-<volume>.js --out json=reports/json/<run-id>.json

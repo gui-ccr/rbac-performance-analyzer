@@ -65,7 +65,7 @@ Middleware          │   3+ execuções    │   3+ execuções    │    3+ ex
 Para cada cenário (estratégia × volume):
 
 1. Popular o banco (schema isolado ou projeto Supabase isolado) com o volume de dados alvo, usando o mesmo gerador de dados/seed para garantir dados equivalentes entre RLS e Middleware.
-2. Subir a API correspondente (`api-rls` ou `api-middleware`).
+2. Subir a API correspondente (`api-rls` ou `api-middleware`) e rodar `npm run check:equivalence` com as duas no ar: confirma que a regra de RBAC devolve os mesmos registros nas duas abordagens para o volume carregado. Se falhar, não coletar.
 3. Aguardar um período de aquecimento (warm-up) fora da coleta, para estabilizar connection pooling e JIT do V8.
 4. Executar o script k6 do cenário, com o perfil de carga padronizado (ver [`TESTES_DE_CARGA.md`](TESTES_DE_CARGA.md)).
 5. Exportar a saída do k6 em JSON (`reports/json/`).

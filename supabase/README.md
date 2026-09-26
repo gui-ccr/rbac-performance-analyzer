@@ -9,7 +9,8 @@ supabase/
 ├── migrations/
 │   ├── 20260920120000_create_schema.sql        # tenants, app_users, records + índices
 │   ├── 20260920120100_create_rls_client_role.sql # role app_rls_client (sem BYPASSRLS)
-│   └── 20260920120200_enable_rls_records.sql     # RLS + políticas admin/manager/viewer
+│   ├── 20260920120200_enable_rls_records.sql     # RLS + políticas admin/manager/viewer
+│   └── 20260926120000_rls_policies_tenant_scope.sql # manager/viewer passam a exigir tenant_id também
 └── seed.sql                                      # dados mínimos para testar as políticas manualmente
 ```
 
@@ -24,7 +25,7 @@ npm install -g supabase   # se ainda não tiver
 supabase login
 supabase link --project-ref <seu-project-ref>
 
-# aplica as 3 migrations, em ordem, no banco remoto
+# aplica as 4 migrations, em ordem, no banco remoto
 supabase db push
 ```
 
@@ -39,7 +40,8 @@ supabase db push
    ```
    Guarde essa senha em `apps/api-rls/.env` (a criar) — nunca em um arquivo versionado.
 5. Cole e rode `migrations/20260920120200_enable_rls_records.sql`.
-6. (Opcional, para testar manualmente) cole e rode `seed.sql`.
+6. Cole e rode `migrations/20260926120000_rls_policies_tenant_scope.sql`.
+7. (Opcional, para testar manualmente) cole e rode `seed.sql`.
 
 ## Validar que o RLS está funcionando
 

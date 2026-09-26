@@ -60,7 +60,7 @@ create index on records (department_id);
 |---|---|
 | `admin` | Todos os registros do próprio tenant |
 | `manager` | Registros do próprio tenant **e** do próprio departamento |
-| `viewer` | Apenas os registros dos quais é `owner` |
+| `viewer` | Registros do próprio tenant dos quais é `owner` |
 
 Essa regra é o "contrato" que as duas implementações precisam cumprir de forma equivalente — é o que deve ser revisado antes da coleta de dados (ver ameaça à validade em [`METODOLOGIA.md`](METODOLOGIA.md#8-ameaças-à-validade)).
 
@@ -88,14 +88,16 @@ create policy records_select_admin on records
 create policy records_select_manager on records
   for select
   using (
-    department_id = (select department_id from app_users where id = app_current_user_id())
+    tenant_id = (select tenant_id from app_users where id = app_current_user_id())
+    and department_id = (select department_id from app_users where id = app_current_user_id())
     and (select role from app_users where id = app_current_user_id()) = 'manager'
   );
 
 create policy records_select_viewer on records
   for select
   using (
-    owner_id = app_current_user_id()
+    tenant_id = (select tenant_id from app_users where id = app_current_user_id())
+    and owner_id = app_current_user_id()
     and (select role from app_users where id = app_current_user_id()) = 'viewer'
   );
 ```
