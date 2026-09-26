@@ -1,0 +1,17 @@
+{
+  "name": "@rbac/api-rls",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/server.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@rbac/shared": "*",
+    "express": "^5.2.1",
+    "pg": "^8.23.0"
+  }
+}
