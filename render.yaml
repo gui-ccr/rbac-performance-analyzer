@@ -14,7 +14,7 @@ services:
     region: virginia
     plan: starter            # ajustar; igual para os dois serviços
     rootDir: .
-    buildCommand: npm ci && npm run build
+    buildCommand: npm ci --include=dev --ignore-scripts && npm run build
     startCommand: npm run start --workspace=@rbac/api-rls
     healthCheckPath: /health
     envVars:
@@ -33,7 +33,7 @@ services:
     region: virginia
     plan: starter            # ajustar; igual para os dois serviços
     rootDir: .
-    buildCommand: npm ci && npm run build
+    buildCommand: npm ci --include=dev --ignore-scripts && npm run build
     startCommand: npm run start --workspace=@rbac/api-middleware
     healthCheckPath: /health
     envVars:
