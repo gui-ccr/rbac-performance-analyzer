@@ -8,7 +8,7 @@ import {
   type ListRecordsResponse,
   type RecordRow,
 } from '@rbac/shared';
-import { withUserContext } from '../db.js';
+import { int, lit, queryAsUser } from '../db.js';
 
 /**
  * Rotas de records da api-rls. NENHUMA query de leitura aqui tem `WHERE` de
@@ -23,11 +23,10 @@ export function recordsRouter(pool: pg.Pool): Router {
     const userId = req.userId!;
     const { page, pageSize, limit, offset } = parsePagination(req.query);
 
-    const { rows } = await withUserContext(pool, userId, (client) =>
-      client.query<RecordRow>('select * from records order by created_at desc, id desc limit $1 offset $2', [
-        limit,
-        offset,
-      ]),
+    const { rows } = await queryAsUser<RecordRow>(
+      pool,
+      userId,
+      `select * from records order by created_at desc, id desc limit ${int(limit)} offset ${int(offset)}`,
     );
 
     const body: ListRecordsResponse = { data: rows, page, pageSize };
@@ -38,9 +37,7 @@ export function recordsRouter(pool: pg.Pool): Router {
     const userId = req.userId!;
     const id = parseRecordId(req.params.id);
 
-    const { rows } = await withUserContext(pool, userId, (client) =>
-      client.query<RecordRow>('select * from records where id = $1', [id]),
-    );
+    const { rows } = await queryAsUser<RecordRow>(pool, userId, `select * from records where id = ${lit(id)}`);
 
     // Registro inexistente e registro invisível pela policy são indistinguíveis (404 nos dois casos).
     if (rows.length === 0) throw new HttpError(404, 'Registro não encontrado.');
@@ -53,15 +50,14 @@ export function recordsRouter(pool: pg.Pool): Router {
 
     // tenant/departamento vêm de `app_users` (não do body); `records_insert_own`
     // valida no banco que owner_id e tenant_id batem com o usuário da sessão.
-    const { rows } = await withUserContext(pool, userId, (client) =>
-      client.query<RecordRow>(
-        `insert into records (tenant_id, owner_id, department_id, title, payload)
-         select tenant_id, id, department_id, $2, $3::jsonb
-         from app_users
-         where id = $1
-         returning *`,
-        [userId, title, JSON.stringify(payload)],
-      ),
+    const { rows } = await queryAsUser<RecordRow>(
+      pool,
+      userId,
+      `insert into records (tenant_id, owner_id, department_id, title, payload)
+       select tenant_id, id, department_id, ${lit(title)}, ${lit(JSON.stringify(payload))}::jsonb
+       from app_users
+       where id = ${lit(userId)}
+       returning *`,
     );
 
     if (rows.length === 0) throw new HttpError(401, 'Usuário não encontrado.');

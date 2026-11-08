@@ -1,41 +1,48 @@
-import type pg from 'pg';
+import pg from 'pg';
+import { isUuid } from '@rbac/shared';
+
+/** Literal de texto seguro para inlining (o simple query protocol não aceita `$1`). */
+export const lit = (value: string): string => pg.escapeLiteral(value);
+
+/** Inteiro para inlining; recusa qualquer coisa que não seja inteiro seguro. */
+export const int = (value: number): string => {
+  if (!Number.isSafeInteger(value)) throw new Error(`Inteiro inválido: ${value}`);
+  return String(value);
+};
 
 /**
- * Executa `fn` numa transação em que `app.current_user_id` vale `userId`.
+ * Executa `sql` com `app.current_user_id = userId` em UMA ida ao banco:
  *
- *   BEGIN → set_config('app.current_user_id', userId, true) → fn(client) → COMMIT
+ *   select set_config('app.current_user_id', '<uuid>', true); <sql>
  *
- * O `true` do set_config o torna local à transação (como SET LOCAL): não
- * vaza para outra requisição que reaproveite a mesma conexão do pool, e só
- * tem efeito se `set_config` e a query de negócio rodarem na MESMA
- * transação/conexão — por isso `fn` recebe o client, nunca o pool.
+ * As duas instruções vão numa única mensagem do *simple query protocol*, que o
+ * Postgres executa como UMA transação implícita. Por isso o `true` do
+ * set_config (local à transação, como SET LOCAL) vale para `sql` e não vaza
+ * para outra requisição que reaproveite a conexão — a mesma garantia do
+ * antigo BEGIN → set_config → query → COMMIT, que custava 4 idas ao banco.
+ * Decisão registrada em docs/DECISOES_DE_PROJETO.md (cada abordagem no seu
+ * mínimo de idas ao banco).
+ *
+ * O simple protocol não aceita parâmetros: todo valor em `sql` precisa entrar
+ * via `lit()`/`int()`. Literais e parâmetros de statement anônimo recebem o
+ * mesmo tipo de plano (custom, a cada execução), então o plano é equivalente
+ * ao que a api-middleware obtém com `$1`.
  *
  * A API informa só a identidade verificada; o papel é resolvido pelas
  * policies a partir de `app_users` (ver docs/POLITICAS_RLS.md).
  */
-export async function withUserContext<T>(
+export async function queryAsUser<T extends pg.QueryResultRow>(
   pool: pg.Pool,
   userId: string,
-  fn: (client: pg.PoolClient) => Promise<T>,
-): Promise<T> {
-  const client = await pool.connect();
-  let discard = false;
-  try {
-    await client.query('BEGIN');
-    await client.query("select set_config('app.current_user_id', $1, true)", [userId]);
-    const result = await fn(client);
-    await client.query('COMMIT');
-    return result;
-  } catch (err) {
-    try {
-      await client.query('ROLLBACK');
-    } catch {
-      discard = true; // conexão em estado desconhecido: não devolver ao pool
-    }
-    throw err;
-  } finally {
-    client.release(discard);
-  }
+  sql: string,
+): Promise<pg.QueryResult<T>> {
+  if (!isUuid(userId)) throw new Error('userId inválido.');
+  const results = (await pool.query(
+    `select set_config('app.current_user_id', ${lit(userId)}, true); ${sql}`,
+  )) as unknown as pg.QueryResult<T>[];
+  const last = Array.isArray(results) ? results[1] : undefined;
+  if (!last) throw new Error('queryAsUser: esperados 2 resultados (set_config + sql).');
+  return last;
 }
 
 /**

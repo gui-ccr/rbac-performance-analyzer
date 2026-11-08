@@ -1,6 +1,6 @@
 import express from 'express';
 import type pg from 'pg';
-import { createAuthenticate, errorHandler, notFoundHandler, type AppConfig } from '@rbac/shared';
+import { createAuthenticate, errorHandler, metricsHandler, notFoundHandler, type AppConfig } from '@rbac/shared';
 import { recordsRouter } from './routes/records.js';
 
 export function createApp(config: AppConfig, pool: pg.Pool): express.Express {
@@ -11,6 +11,9 @@ export function createApp(config: AppConfig, pool: pg.Pool): express.Express {
   app.get('/health', (_req, res) => {
     res.json({ status: 'ok', strategy: 'rls' });
   });
+
+  // CPU/memória do processo, lido pelo coletor durante cada execução do k6 (sem autenticação).
+  app.get('/metrics', metricsHandler('rls'));
 
   // Autenticação (JWT -> user_id) e, a partir daí, o banco decide o que cada usuário vê.
   app.use('/records', createAuthenticate(config.jwtSecret), recordsRouter(pool));
