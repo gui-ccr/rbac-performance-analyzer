@@ -18,7 +18,9 @@
     "dev:middleware": "npm run dev --workspace=apps/api-middleware",
     "seed": "tsx scripts/seed/index.ts",
     "token": "tsx scripts/dev/generate-token.ts",
-    "check:equivalence": "tsx scripts/check/equivalence.ts"
+    "check:equivalence": "tsx scripts/check/equivalence.ts",
+    "experiment": "tsx scripts/run/run-experiment.ts",
+    "report": "tsx scripts/report/build-csv.ts"
   },
   "devDependencies": {
     "@types/express": "^5.0.6",
