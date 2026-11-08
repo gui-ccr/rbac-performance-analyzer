@@ -1,0 +1,47 @@
+# Blueprint do Render para as duas APIs do experimento.
+# Região us-east (Virginia), mesma do Supabase (us-east-1), para o RTT ser de poucos ms.
+#
+# IMPORTANTE para a validade do experimento:
+#  - use o MESMO plano nos dois serviços (ver docs/METODOLOGIA.md, variáveis controladas);
+#  - o plano "free" dorme após inatividade e tem CPU limitada: não usar para coleta.
+#
+# Segredos (sync: false) são preenchidos no painel do Render, nunca aqui.
+
+services:
+  - type: web
+    name: rbac-api-rls
+    runtime: node
+    region: virginia
+    plan: starter            # ajustar; igual para os dois serviços
+    rootDir: .
+    buildCommand: npm ci && npm run build
+    startCommand: npm run start --workspace=@rbac/api-rls
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_VERSION
+        value: "24"
+      - key: DATABASE_URL          # role app_rls_client (RLS ativo)
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: DATA_VOLUME
+        value: "10000"
+
+  - type: web
+    name: rbac-api-middleware
+    runtime: node
+    region: virginia
+    plan: starter            # ajustar; igual para os dois serviços
+    rootDir: .
+    buildCommand: npm ci && npm run build
+    startCommand: npm run start --workspace=@rbac/api-middleware
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_VERSION
+        value: "24"
+      - key: DATABASE_URL          # role app_mw_client (BYPASSRLS, filtra na aplicação)
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: DATA_VOLUME
+        value: "10000"
