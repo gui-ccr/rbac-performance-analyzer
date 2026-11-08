@@ -36,8 +36,9 @@ Método **experimental**, com manipulação controlada de uma variável independ
 | Latência (p50, p90, p95, p99) | Tempo de resposta da requisição, em ms | k6 (`http_req_duration`) |
 | Throughput | Requisições/segundo sustentadas | k6 (`http_reqs`) |
 | Taxa de erro | % de requisições com status ≥ 400 ou timeout | k6 (`http_req_failed`) |
-| Uso de CPU — servidor de aplicação | % de CPU do processo Node.js durante o teste | amostragem via `process.cpuUsage()` exposta em endpoint `/metrics`, ou `pidstat`/`top` no host da API |
-| Uso de CPU — banco de dados | % de CPU da instância Postgres durante o teste | painel de métricas do Supabase (Database → Reports), amostrado com timestamp para cruzar com a janela do teste |
+| Uso de CPU/memória — servidor de aplicação | % de CPU e RSS do processo Node.js durante o teste | `GET /metrics` (`process.cpuUsage()`), amostrado a cada 1 s pelo orquestrador |
+| Uso de CPU/memória — banco de dados | % de CPU e memória da instância Postgres durante o teste | endpoint Prometheus do Supabase, amostrado a cada 5 s pelo orquestrador |
+| Capacidade (ponto de saturação) | Maior taxa de chegada (req/s) sustentada com p95 ≤ 1 s, erro ≤ 1% e vazão ≥ 95% do alvo, e a concorrência correspondente (Lei de Little) | perfil `stress` do k6 (degraus de taxa de chegada), calculado por `npm run report` |
 
 ### 4.4 Variáveis controladas (constantes entre os grupos)
 
@@ -77,6 +78,7 @@ Para cada cenário (estratégia × volume):
 
 - Estatística descritiva (média, mediana, desvio padrão, percentis) por cenário.
 - Comparação da **taxa de degradação** (delta de latência/CPU entre 10k→50k→100k) de cada estratégia, não apenas o valor absoluto — é essa taxa que sustenta ou refuta H1.
+- Comparação da **capacidade** (ponto de saturação, perfil `stress`) de cada estratégia em cada volume: quanto a capacidade cai de 10k→100k é a medida mais direta da sobrecarga do RLS sob concorrência.
 - Visualização: gráficos de latência (p95) e CPU por volume de dados, uma linha por estratégia, para evidenciar a inclinação da curva de degradação.
 
 ## 8. Ameaças à validade
@@ -84,4 +86,5 @@ Para cada cenário (estratégia × volume):
 - **Ambiente compartilhado (Supabase multi-tenant/managed):** picos de uso de outros tenants na infraestrutura do Supabase podem introduzir ruído. Mitigação: múltiplas repetições, execução em horários variados, e (se necessário) uso de um tier dedicado.
 - **Máquina/rede de onde o k6 é executado:** se o gerador de carga rodar na mesma máquina/rede da API, pode haver contenção de recursos mascarando o resultado. Recomendado rodar k6 e a API testada em ambientes separados da máquina local (ver decisão pendente em [`DECISOES_DE_PROJETO.md`](DECISOES_DE_PROJETO.md)).
 - **Diferença de implementação não intencional:** se a query do Middleware fizer mais/menos trabalho do que a política de RLS equivalente (ex.: filtros diferentes, índices diferentes), o resultado deixa de refletir só a estratégia. Mitigação: revisão cruzada da lógica de autorização das duas APIs antes da coleta.
+- **Latência de rede até o banco e nº de idas ao banco por requisição:** medido em 2026-09-26, da máquina do autor até o Supabase (us-east-1), o tempo de ida e volta é de ~133 ms. Na versão daquele piloto, a `api-rls` fazia 4 idas ao banco por requisição (`BEGIN`, `set_config`, query, `COMMIT`) e a `api-middleware` faz 2 (busca do usuário + query). Com API e banco distantes, 4 x 133 ms domina a latência (smoke test com 1 VU: RLS ~583 ms x Middleware ~315 ms) e a diferença medida reflete o **número de idas ao banco**, não o custo de aplicar RLS dentro do Postgres — que é o que a hipótese quer medir. Mitigação: rodar as APIs na mesma região do banco (RTT de poucos ms) e/ou igualar o nº de idas ao banco (ver decisão pendente em [`DECISOES_DE_PROJETO.md`](DECISOES_DE_PROJETO.md)). Os números do piloto local **não** servem como resultado. Desde 2026-11-03 o RLS faz 1 ida ao banco (decisão 9 em `DECISOES_DE_PROJETO.md`); a diferença residual (1 × 2 idas) é desprezível com a API na mesma região do banco, mas deve ser citada.
 - **Cold start do Supabase/serverless:** se a API ou o banco tiverem cold start, a primeira execução de cada cenário pode distorcer a média. Mitigação: warm-up antes da coleta (passo 3 do procedimento).

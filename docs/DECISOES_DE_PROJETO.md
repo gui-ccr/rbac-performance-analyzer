@@ -83,6 +83,20 @@ Vale para as policies de RLS (`supabase/migrations/20260926120000_rls_policies_t
 
 ---
 
+## 9. RLS em uma única ida ao banco por requisição
+
+**Decisão (2026-11-03):** a `api-rls` envia `select set_config('app.current_user_id', '<uuid>', true); <query>` numa **única** mensagem do *simple query protocol* (`apps/api-rls/src/db.ts`, `queryAsUser`), em vez de `BEGIN` → `set_config` → query → `COMMIT` (4 idas).
+
+**Motivo:** o Postgres executa uma mensagem com várias instruções como **uma** transação implícita, então o `set_config(..., true)` continua local à transação e não vaza entre requisições — a garantia é a mesma, com 1 ida em vez de 4. Cada abordagem passa a ser medida no seu mínimo de idas ao banco: RLS = 1, Middleware = 2 (busca do usuário + query; a busca é inerente à abordagem, porque a aplicação precisa do papel para montar o `WHERE`).
+
+**Custo:** o simple protocol não aceita parâmetros `$1`; os valores entram como literais escapados (`pg.escapeLiteral`, inteiros validados). O planner trata literais e parâmetros de statement anônimo da mesma forma (plano custom por execução), então os planos são equivalentes aos da `api-middleware`. A diferença residual de 1 ida ao banco é desprezível com a API na mesma região do banco e fica registrada como ameaça à validade.
+
+## 10. CPU do banco via endpoint Prometheus do Supabase
+
+**Decisão:** coletar CPU/memória do banco automaticamente, a cada 5 s, pelo endpoint de métricas Prometheus que todo projeto Supabase expõe (`/customer/v1/privileged/metrics`), em vez de ler o painel *Database → Reports* à mão.
+
+**Motivo:** o painel agrega em janelas grandes e exige recorte manual; o endpoint dá contadores cumulativos (`node_cpu_seconds_total`) que permitem calcular a CPU exatamente na janela de cada execução e de cada degrau do stress. Detalhes em [`TESTES_DE_CARGA.md`](TESTES_DE_CARGA.md#coleta-de-cpu-e-memória-implementado).
+
 ## Pendências (a decidir antes da implementação)
 
 ### Onde rodar `api-rls` / `api-middleware` durante os testes
@@ -93,10 +107,14 @@ Se as APIs rodarem na máquina local do autor enquanto o k6 também roda localme
 - Rodar o k6 na nuvem (k6 Cloud tem free tier limitado) apontando para a API local — inverte o problema, não resolve sozinho.
 - Se ambos rodarem localmente, ao menos documentar como limitação e evitar tirar conclusões de CPU da própria API (manter o foco na CPU do banco, que é o objeto central da hipótese).
 
-**Ação:** decidir antes de escrever os scripts de teste de carga, pois define a `BASE_URL` usada nos cenários k6.
+**Evidência (2026-09-26):** da máquina local até o Supabase (us-east-1) o RTT medido é de ~133 ms, e a `api-rls` faz 4 idas ao banco por requisição contra 2 da `api-middleware`. Rodando local, a latência medida é dominada por rede x nº de idas, e a comparação deixa de isolar o custo do RLS (ver [`METODOLOGIA.md`](METODOLOGIA.md#8-ameaças-à-validade)). **Recomendação:** colocar as APIs na mesma região do banco (ex.: Render/Railway/Fly em Virginia) e rodar o k6 de outra máquina; (a redução das idas ao banco do RLS foi decidida na seção 9).
+
+**Ação:** decidir antes da coleta oficial, pois define a `BASE_URL` usada nos cenários k6.
 
 ### Plano do Supabase e granularidade de métricas de CPU
 
-Confirmar se o plano gratuito do Supabase expõe métricas de CPU do banco com granularidade suficiente (painel *Database → Reports*) para as janelas de teste (minutos), ou se será necessário um plano pago / coleta alternativa (ex. `pg_stat_activity`, extensões de observabilidade).
+Resolvido pela seção 10 (endpoint Prometheus). Falta confirmar, com o projeto ativo, que a leitura de teste do orquestrador funciona com a chave do projeto.
 
-**Ação:** validar no painel do Supabase antes de finalizar `docs/TESTES_DE_CARGA.md#coleta-de-cpu-fora-do-k6`.
+**Atenção:** projetos do plano gratuito são **pausados após ~1 semana sem uso** (aconteceu em 2026-11: o host do projeto deixou de resolver). Reativar no painel antes de cada bateria de coleta e registrar o plano/tamanho da instância (compute) usado, que é variável controlada.
+
+**Ação:** configurar `SUPABASE_METRICS_KEY` no `.env` da raiz (ver `.env.example`).

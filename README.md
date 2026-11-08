@@ -17,7 +17,7 @@ Projeto experimental desenvolvido para a disciplina de Metodologia Científica. 
 - [x] Implementação da API `api-rls`
 - [x] Implementação da API `api-middleware`
 - [x] Scripts de seed (10k / 50k / 100k registros)
-- [ ] Scripts de teste de carga (k6)
+- [x] Scripts de teste de carga (k6) — cenários e orquestrador; falta decidir o ambiente da coleta oficial (ver `docs/DECISOES_DE_PROJETO.md`)
 - [ ] Pipeline de relatório (JSON → CSV)
 - [ ] Coleta de dados e análise estatística
 - [ ] Redação dos resultados
@@ -91,8 +91,10 @@ npm run dev:middleware
 TOKEN=$(npm run -s token -- 44444444-4444-4444-4444-444444444444)   # viewer do seed.sql
 curl -H "Authorization: Bearer $TOKEN" "localhost:3001/records?page=1&pageSize=20"
 
-# 5. Rodar os testes de carga
-k6 run load-tests/k6/scenario-<volume>.js --out json=reports/json/<run-id>.json
+# 5. Rodar os testes de carga de um volume (equivalência + aquecimento + 3 rodadas alternadas)
+npm run experiment -- --volume=10000
+# ou um cenário isolado:
+k6 run -e PROFILE=smoke load-tests/k6/rls-10k.js
 
 # 6. Converter o relatório para CSV
 npm run report -- reports/json/<run-id>.json
